@@ -1,0 +1,300 @@
+Interfaz de usuario (cliente)
+
+    El programa cliente se lanzará pasándole 3 argumentos en la línea de comandos:
+
+        Nombre de la máquina en la que está el servidor
+
+        Número del puerto en el que escucha el servidor
+
+        Nickname (apodo) del cliente del chat. Si el nick es reader, el cliente funcionará 
+        en modo lector. Con cualquier otro nick distinto a reader el cliente funcionará en 
+        modo escritor.
+
+    Una vez lanzado:
+
+    Si el cliente se lanza en modo escritor, pedirá al usuario cadenas de caracteres, y se 
+    las irá enviando al servidor.
+    Los clientes lanzados en modo escritor no reciben mensajes del servidor. El programa 
+    terminará cuando el usuario introduzca la cadena .quit
+    Si el cliente se lanza en modo lector, esperará a recibir mensajes del servidor 
+    (conteniendo las cadenas enviadas por los clientes escritores del chat), y los mostrará 
+    en pantalla. En este modo el cliente nunca terminará su ejecución.
+
+    MUY IMPORTANTE: Si un cliente escritor intenta entrar al chat utilizando un nick que ya 
+    está siendo usado por otro cliente escritor que entró anteriormente, todos sus mensajes 
+    serán ignorados por el servidor.
+
+    Ejemplos de ejecución:
+
+        $ ./chat_client zeta12 9001 reader
+        server: ana joins the chat
+        ana: entro
+        server: carlos joins the chat
+        carlos: Hola
+        carlos: quién está ahí?
+        ana: estoy yo, soy ana
+        carlos: ana dime algo
+        ana: hola carlos
+        carlos: adios
+        ana: hasta luego
+
+        $ ./chat_client zeta12 9001 carlos
+        Message: Hola
+        Message: quién está ahí?
+        Message: ana dime algo
+        Message: adios
+        Message: .quit
+        $
+
+Interfaz de usuario (servidor)
+
+    El programa servidor se lanzará pasándole 1 argumento en la línea de comandos:
+
+        Número del puerto en el que escucha el servidor
+
+    Una vez lanzado, el servidor recibirá mensajes procedentes de clientes:
+
+        Si recibe un mensaje Init, añadirá el cliente a la colección de clientes lectores o 
+        a la de escritores, y, además, cuando el cliente sea un nuevo escritor, enviará a 
+        todos los lectores un mensaje Server notificando la entrada del nuevo usuario en el 
+        chat.
+
+        Si recibe un mensaje Writer, comprobará si pertenece a un cliente conocido y, en 
+        caso afirmativo, enviará a todos los lectores un mensaje Server conteniendo el nick 
+        del cliente escritor y el texto que contenía el mensaje Writer recibido.
+
+    El servidor nunca terminará su ejecución.
+    El servidor irá mostrando en pantalla los mensajes que vaya recibiendo para permitir 
+    comprobar su funcionamiento.
+
+    Ejemplos de ejecución:
+
+        $ ./chat_server 9001
+        INIT received from reader
+        INIT received from ana
+        INIT received form carlos
+        WRITER received from ana: entro
+        WRITER received from carlos: Hola
+        WRITER received from carlos: quién está ahí?
+        WRITER received from ana: estoy yo, soy ana
+        INIT received from ana. IGNORED, nick already used
+        WRITER received from carlos: ana dime algo
+        WRITER received from ana: hola carlos
+        WRITER received from unknown client. IGNORED
+        WRITER received from carlos: adios
+        WRITER received from ana: hasta luego
+
+Formato de los mensajes
+
+    El formato de los mensajes estará en el fichero chat_messages.ads, que sólo contendrá:
+
+        type Message_Type is (Init, Writer, Server);
+
+    Mensaje Init:
+
+        Es el que envía un cliente al servidor al arrancar. Formato:
+            | Init | Client_EP | Nick |
+        En donde:
+            - Init: Valor del tipo Message_Type.
+            - Client_EP: End_Point al que está atado el cliente.
+            - Nick: Unbounded_String con el Nick, si éste es reader, el cliente será 
+                    lector, en caso contrario, será escritor.
+
+    Mensaje Writer:
+
+        Es el que envía un cliente escritor al servidor con una cadena de caracteres 
+        introducida por el usuario. Formato:
+            | Writer | Client_EP | Comentario |
+        En donde:
+            - Writer: valor del tipo Message_Type que identifica el tipo de mensaje.
+            - Client_EP: End_Point del cliente que envía el mensaje.
+            - Comentario: Unbounded_String con la cadena de caracteres introducida por el 
+                          usuario.
+
+    Mensaje Server:
+
+        Es el que envía un servidor a cada cliente lector, tras haber recibido un mensaje 
+        Writer procedente de un cliente escritor conteniendo un texto escrito por un 
+        usuario. El servidor envía el mensaje Server para comunicar a todos los lectores 
+        dicho texto. Formato:
+            | Server | Nick | Texto |
+        En donde:
+            - Server: valor del tipo Message_Type que identifica el tipo de mensaje.
+            - Nick: Unbounded_String con el nick del cliente que escribió el texto. Si el 
+                    mensaje es para informar de que un nuevo cliente ha entrado en el 
+                    chat, este campo tendrá el valor server.
+            - Texto: Unbounded_String con la cadena de caracteres introducida por el 
+                     usuario. Si el mensaje es para informar de que un nuevo cliente ha 
+                     entrado en el chat, este campo tendrá el valor del nick del usuario 
+                     concatenado con la cadena joins the chat.
+
+Paquete Client_Collections
+
+    Add_Client:
+
+        - Si el parámetro Nick NO está en la lista, crea una nueva celda para el cliente, 
+          almacenando en ella su EP y su Nick. Aumenta en 1 el total de elementos de la 
+          lista.
+        - Si el parámetro Nick ya está en la lista y el parámetro Unique es True, eleva la 
+          excepción Client_Collection_Error.
+        - Si el parámetro Nick ya está en la lista y el parámetro Unique es False, crea 
+          una nueva celda para el cliente, almacenando en ella su EP y su Nick. Aumenta en 
+          1 el total de elementos de la lista.
+
+    Delete_Client:
+
+        Si Nick está en la lista, elimina su celda de la lista y libera la memoria ocupada 
+        por ella (llamando adecuadamente a Free), y disminuye en 1 el total de elementos 
+        de la lista. Si Nick no está en la lista, eleva la excepción 
+        Client_Collection_Error.
+
+    Search_Client:
+
+        Si EP está en la lista, devuelve su Nick. Si EP no está en la lista, eleva la 
+        excepción Client_Collection_Error.
+
+    Send_To_All:
+
+        Este subprograma lo usará el servidor pasando como primer parámetro la colección 
+        de clientes lectores. Envía a todos los clientes de la colección que se pasa como 
+        parámetro el mensaje que hay en el Buffer apuntado por P_Buffer. Si no hay ningún 
+        cliente en la colección, o si la colección está vacía, el subprograma no hace 
+        nada, pero no eleva ninguna excepción.
+
+    Collection_Image:
+
+        Devuelve un String con la concatenación de los datos de todos los clientes de la 
+        colección que se pasa como parámetro, en orden inverso al que se introdujeron en 
+        ella. El formato deberá ser el siguiente:
+            - Para cada elemento de la colección, se concatenan los datos del EP (IP y 
+              puertos separados por el carácter ":”), un espacio, y el nick. Ejemplo: 
+                  "193.147.49.72:1025 carlos"
+            - Los datos de los diversos elementos de la colección se concatenan poniendo 
+              entre ellos el carácter ASCII.LF fin de línea). Ejemplo:
+                  "193.147.49.72:1025 carlos" & ASCII.LF & "193.147.49.72:1026 ana"
+
+Extensión:
+
+Interfaz de usuario (admin)
+
+    El programa se lanzará pasándole 3 argumentos en la línea de comandos:
+
+        Nombre de la máquina en la que está el servidor
+
+        Número de puerto en el que escucha el servidor
+
+        Password (Contraseña) de administración
+
+    Una vez lanzado, el programa mostrará al usuario un menú interactivo permitiendo al 
+    usuario realizar las siguientes tareas:
+        - Mostrar la colección de clientes escritores conocidos por el servidor, 
+          incluyendo su End_Point y su nick
+        - Expulsar del chat a un cliente escritor dado su nick
+        - Terminar la ejecución del servidor
+        - Salir del programa chat_admin
+
+    La contraseña de administración debe coincidir con la que se le pase como parámetro 
+    adicional al servidor.
+
+    Ejemplos de ejecución:
+
+        $ ./chat_admin zeta12 9001 admin
+        Options
+        1 Show writers collection
+        2 Ban writer
+        3 Shutdown server
+        4 Quit
+        Your option? 1
+        193.147.49.72:1025 carlos
+        193.147.49.72:1026 ana
+        Options
+        1 Show writers collection
+        2 Ban writer
+        3 Shutdown server
+        4 Quit
+        Your option? 2
+        Nick to ban? carolina
+        Options
+        1 Show writers collection
+        2 Ban writer
+        3 Shutdown server
+        4 Quit
+        Your option? 3
+        Server shutdown sent
+        Options
+        1 Show writers collection
+        2 Ban writer
+        3 Shutdown server
+        4 Quit
+        Your option? 4
+        $
+
+    Cambios en Chat_Server.adb:
+
+        Deberá recibir un segundo argumento en la línea de comandos con la contraseña de 
+        adminsitración que debe recibir del programa chat_admin.
+        El programa chat_server ya no será un bucle infinito recibiendo mensajes, sino que 
+        terminará su ejecución al recibir un mensaje Shutdown.
+        Deberá estar preparado para atender los nuevos tipos de mensajes:
+
+            - Al recibir un mensaje Collection_Request, comprobará si la contraseña es 
+              correcta y enviará como respuesta un mensaje Collection_Data. Si la 
+              contraseña no fuera correcta, se ignorará el mensaje.
+
+            - Al recibir un mensaje Ban, comprobará si la contraseña es correcta y si el 
+              nick es de un escritor que está en la colección de clientes escritores 
+              conocidos. En ese caso, eliminará a ese cliente de la colección. Si la 
+              contraseña no fuera correcta, si el nick fuera reader o si el nick no 
+              estuviera en la colección de escritores, se ignorará el mensaje.
+
+            - Al recibir un mensaje Shutdown, comprobará si la contraseña es correcta. En 
+              ese caso, el cliente terminará su ejecución. Si la contraseña no fuera 
+              correcta, se ignorará el mensaje.
+
+        $ ./chat_server 9001 admin
+
+    Cambios en Chat_Messages.ads:
+
+        type Message_Type is (Init, Writer, Server, Collection_Request, Collection_Data,
+                              Ban, Shutdown);
+
+        Mensaje Collection_Request:
+
+            Es el que envía chat_admin al chat_server para pedirle la colección de 
+            clientes. Formato:
+                | Collection_Request | Admin_EP | Password |
+            En donde:
+                - Collection_Request: Message_Type que identifica el tipo de mensaje.
+                - Admin_EP: End_Point_Type con el valor del End_Point en el que escucha el 
+                            programa client_admin y en el que esperará la recepción del 
+                            mensaje Collection_Data de respuesta.
+                - Password: Unbounded_String con la contraseña de administración.
+
+        Mensaje Collection_Data:
+
+            Es el que envía chat_server al chat_admin como respuesta a un mensaje 
+            Collection_Request. Formato:
+                | Collection_Data | Data |
+            En donde:
+                - Collection_Data: Message_Type que identifica el tipo de mensaje.
+                - Data: Unbounded_String con los datos de todos los clientes escritores en 
+                        el mismo formato en que los devuelve el subprograma 
+                        Collection_Image pero convertido a Unbounded_String.
+
+        Mensaje Ban:
+
+            Es el que envía chat_admin al chat_server para expulsar a un cliente. Formato:
+                | Ban | Password | Nick |
+            En donde:
+                - Ban: Message_Type que identifica el tipo de mensaje.
+                - Password: Unbounded_String con la contraseña de administración.
+                - Nick: Unbounded_String con el nick del cliente a expulsar.
+
+        Mensaje Shutdown:
+
+            Es el que envía chat_admin al chat_server para que termine su ejecución. 
+            Formato:
+                | Shutdown | Password |
+            En donde:
+                - Shutdown: Message_Type que identifica el tipo de mensaje.
+                - Password: Unbounded_String con la contraseña de administración.
