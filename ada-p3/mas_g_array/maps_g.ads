@@ -2,10 +2,10 @@ with Ada.Text_IO;
 
 generic
 
-    type Key_Type is private;
+    type   Key_Type is private;
     type Value_Type is private;
 
-    with function "=" (K1, K2: Key_Type) return Boolean;
+    with function "=" (K1, K2 : Key_Type) return Boolean;
 
     Size: in Natural := 150;
 
@@ -55,7 +55,7 @@ private
         Full  :    Boolean := False;
     end record;
 
-    type Cell_Array   is array (1..Size) of Cell;
+    type   Cell_Array is array (1..Size) of Cell;
     type Cell_Array_A is access Cell_Array;
 
     type Map is record
