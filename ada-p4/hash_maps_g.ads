@@ -6,28 +6,29 @@ generic
    
    with function "=" (K1, K2 : Key_Type) return Boolean;
    
-   with function "<" (K1, K2 : Key_Type) return Boolean;
+   type Hash_Range is mod <>;
    
-   Max : in Natural := 150;
+   with function Hash (K : Key_Type) return Hash_Range;
+   
+   Max : in Natural;
 
-package Ordered_Maps_G is
+package Hash_Maps_G is
 
    type Map is limited private;
-
-   procedure Get (M       : Map;
-                  Key     : in  Key_Type;
+   
+   Full_Map : exception;
+   
+   procedure Get (M       : in out Map;
+                  Key     : in Key_Type;
                   Value   : out Value_Type;
                   Success : out Boolean);
-
-   Full_Map : exception;
 
    procedure Put (M     : in out Map;
                   Key   : Key_Type;
                   Value : Value_Type);
 
-
    procedure Delete (M       : in out Map;
-                     Key     : in  Key_Type;
+                     Key     : in Key_Type;
                      Success : out Boolean);
 
    function Map_Length (M : Map) return Natural;
@@ -51,21 +52,27 @@ package Ordered_Maps_G is
 
 private
 
-    type Cell is record
-        Key   : Key_Type;
-        Value : Value_Type;
-    end record;
-
-    type Cell_Array is array (1..Max) of Cell;
-
-    type Map is record
-        P_Array : Cell_Array;
-        Length  : Natural := 0;
-    end record;
-
-   type Cursor is record
-      M   : Map;
-      Pos : Natural;
+   type Cell;
+   
+   type Cell_A is access Cell;
+   
+   type Cell is record
+      Key   : Key_Type;
+      Value : Value_Type;
+      Next  : Cell_A;
    end record;
 
-end Ordered_Maps_G;
+   type Hash_Array is array (Hash_Range) of Cell_A;
+
+   type Map is record
+      H_Array : Hash_Array;
+      Length  : Natural := 0;
+   end record;
+
+   type Cursor is record
+      Posicion  : Hash_Range;
+      Element_A : Cell_A;
+      Chain     : Hash_Array;
+   end record;
+
+end Hash_Maps_G;
